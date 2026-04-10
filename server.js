@@ -13,7 +13,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: (o, cb) => cb(null, true), credentials: true } });
 
 const DISCORD_CLIENT_ID     = process.env.DISCORD_CLIENT_ID     || '1487640781811355648';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'uviLE_dA_3C19btdz-fKw9J2aVjgopeK';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const ADMIN_PASSWORD        = process.env.ADMIN_PASSWORD        || 'YamazakiAdmin2025';
 // Single URL — backend serves frontend on same port
 const BASE_URL = process.env.BASE_URL;
