@@ -16,7 +16,7 @@ const DISCORD_CLIENT_ID     = process.env.DISCORD_CLIENT_ID     || '148764078181
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const ADMIN_PASSWORD        = process.env.ADMIN_PASSWORD        || 'YamazakiAdmin2025';
 // Single URL — backend serves frontend on same port
-const BASE_URL = process.env.BASE_URL;
+const BASE_URL = process.env.BASE_URL;const REDIRECT_URI = `${BASE_URL}/auth/callback`;
 const FRONTEND_URL          = BASE_URL;
 const MAX_TEAMS             = 50;
 const MAX_TEAMS_RELOAD      = 20;
