@@ -93,7 +93,7 @@ app.use(express.json({ limit:'5mb' }));
 app.use(session({ secret: process.env.SESSION_SECRET||'yze-v2', resave:false, saveUninitialized:false, cookie:{secure:false,maxAge:86400000} }));
 
 // Serve frontend static files on same port
-app.use(express.static(path.join(__dirname, '../frontend/public')));
+app.use(express.static(path.join(__dirname, '.')));
 
 // ── Auth ───────────────────────────────────────────────────────────────────────
 app.get('/auth/discord', (req,res) => {
