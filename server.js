@@ -16,7 +16,7 @@ const DISCORD_CLIENT_ID     = process.env.DISCORD_CLIENT_ID     || '148764078181
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'uviLE_dA_3C19btdz-fKw9J2aVjgopeK';
 const ADMIN_PASSWORD        = process.env.ADMIN_PASSWORD        || 'YamazakiAdmin2025';
 // Single URL — backend serves frontend on same port
-const BASE_URL = "https://yamazakiesportsgithubio-production.up.railway.app";const REDIRECT_URI          = `${BASE_URL}/auth/callback`;
+const BASE_URL = process.env.BASE_URL;
 const FRONTEND_URL          = BASE_URL;
 const MAX_TEAMS             = 50;
 const MAX_TEAMS_RELOAD      = 20;
