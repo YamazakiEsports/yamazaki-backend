@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Yamazaki Esports — Duo Scrim Map</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1a;color:#f3f4f6;min-height:100vh;overflow:hidden}
+#hdr{background:#111827;border-bottom:1px solid #1f2d3d;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;height:52px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-icon{width:30px;height:30px;background:#f59e0b;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-title{color:#f59e0b;font-weight:600;font-size:14px}
+.logo-sub{color:#6b7280;font-size:10px}
+.hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{background:#1f2937;border:.5px solid #374151;border-radius:20px;padding:3px 11px;font-size:11px;color:#9ca3af}
+.pill b{color:#f3f4f6}
+.user-chip{display:flex;align-items:center;gap:7px;background:#1f2937;border:.5px solid #374151;border-radius:20px;padding:3px 10px 3px 3px}
+.u-av{width:22px;height:22px;border-radius:50%;object-fit:cover;background:#374151}
+.u-name{font-size:11px;color:#f3f4f6}
+.admin-badge{background:#f59e0b;color:#0a0f1a;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px}
+.btn{border:.5px solid #374151;background:transparent;color:#9ca3af;border-radius:7px;padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s}
+.btn:hover{background:#1f2937;color:#f3f4f6}
+.btn.gold{background:#f59e0b;border-color:#f59e0b;color:#0a0f1a;font-weight:600}
+.btn.gold:hover{background:#fbbf24}
+.btn.danger{border-color:#7f1d1d;color:#fca5a5}
+.btn.danger:hover{background:#7f1d1d}
+.btn.active{background:#f59e0b;border-color:#f59e0b;color:#0a0f1a}
+.btn.sm{padding:2px 8px;font-size:10px;border-radius:4px}
+.btn.green{border-color:#34d399;color:#34d399}
+.btn.green:hover{background:#064e3b}
+#wrap{display:flex;height:calc(100vh - 52px)}
+#map-wrap{flex:1;position:relative;overflow:hidden;background:#0d1117;display:flex;align-items:center;justify-content:center}
+#map-img{max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;pointer-events:none}
+#zones-svg{position:absolute;top:0;left:0;width:100%;height:100%}
+.zone-poly{cursor:pointer;fill:rgba(96,165,250,0.12);stroke:#60a5fa;stroke-width:2;transition:fill .15s}
+.zone-poly:hover{fill:rgba(245,158,11,0.22);stroke:#f59e0b}
+.zone-poly.claimed{fill:rgba(239,68,68,0.18);stroke:#f87171;cursor:not-allowed}
+.zone-poly.mine{fill:rgba(34,197,94,0.22);stroke:#4ade80;stroke-width:2.5}
+.zone-poly.multi{fill:rgba(251,146,60,0.18);stroke:#fb923c}
+.zone-poly.editor-z{fill:rgba(245,158,11,0.1);stroke:#f59e0b;stroke-width:2;stroke-dasharray:5,3;cursor:move}
+.zone-poly.editor-z:hover{fill:rgba(245,158,11,0.2)}
+.zone-poly.editor-sel{fill:rgba(255,255,255,0.1);stroke:#fff;stroke-width:2.5}
+.cdot{fill:#f59e0b;stroke:#111827;stroke-width:2;cursor:grab}
+.cdot:hover,.cdot:active{fill:#fff;cursor:grabbing}
+.draw-seg{stroke:#f59e0b;stroke-width:2;stroke-dasharray:5,3;fill:none;pointer-events:none}
+.draw-pt{fill:#f59e0b;stroke:#111827;stroke-width:1.5;pointer-events:none}
+.close-pt{fill:#4ade80;stroke:#111827;stroke-width:2;cursor:pointer}
+.zlbl{pointer-events:none;font-size:10px;fill:rgba(255,255,255,0.65);font-family:-apple-system,sans-serif;text-anchor:middle;dominant-baseline:middle}
+.tlbl{pointer-events:none;font-size:9px;fill:#f3f4f6;font-family:-apple-system,sans-serif;font-weight:600;text-anchor:middle;dominant-baseline:middle}
+#sb{width:250px;background:#111827;border-left:1px solid #1f2d3d;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sb-top{padding:10px 12px;border-bottom:1px solid #1f2d3d;flex-shrink:0}
+.sb-sec-title{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;font-weight:500;margin-bottom:8px}
+#my-team-box{background:#0d1117;border-radius:8px;padding:8px 10px}
+#sb-list-wrap{flex:1;overflow-y:auto}
+.sb-list-hdr{padding:8px 12px 4px;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;font-weight:500;border-bottom:.5px solid #1a2332;position:sticky;top:0;background:#111827;z-index:1}
+.team-row{padding:7px 12px;border-bottom:.5px solid #1a2332;display:flex;align-items:center;gap:8px}
+.t-av{width:26px;height:26px;border-radius:50%;object-fit:cover;background:#1f2937;flex-shrink:0}
+.t-info{flex:1;min-width:0}
+.t-name{font-size:12px;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.t-zone{font-size:10px;color:#f59e0b}
+.t-p2{font-size:10px;color:#9ca3af}
+.t-time{font-size:9px;color:#374151}
+.adm-btns{display:flex;gap:4px;flex-shrink:0}
+#sb-footer{padding:10px 12px;border-top:1px solid #1f2d3d;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+#editor-bar{display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:80;background:#111827;border:2px solid #f59e0b;border-radius:12px;padding:10px 16px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 32px rgba(0,0,0,0.7)}
+#zone-panel{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:80;background:#111827;border:1px solid #374151;border-radius:10px;padding:10px 16px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5)}
+#zone-panel input,#zone-panel select,#editor-bar input,#editor-bar select{background:#0d1117;border:1px solid #374151;color:#f3f4f6;border-radius:5px;padding:3px 8px;font-size:11px;outline:none}
+#editor-bar input{width:110px}
+#zone-panel input{width:120px}
+#login-screen,#register-screen{display:none;position:fixed;inset:0;background:rgba(10,15,26,0.96);z-index:50;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:24px}
+#login-screen.show,#register-screen.show{display:flex}
+.screen-card{background:#111827;border:1px solid #1f2d3d;border-radius:14px;padding:28px 24px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+.screen-title{font-size:18px;font-weight:500}
+.screen-sub{font-size:13px;color:#9ca3af;line-height:1.6}
+.field-lbl{font-size:12px;color:#9ca3af;margin-bottom:4px}
+.field-inp{width:100%;background:#0d1117;border:1px solid #374151;border-radius:8px;padding:9px 12px;color:#f3f4f6;font-size:14px;outline:none}
+.field-inp:focus{border-color:#f59e0b}
+.field-inp::placeholder{color:#374151}
+.discord-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:#5865F2;color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:500;cursor:pointer;width:100%}
+.discord-btn:hover{background:#4752c4}
+.divider{display:flex;align-items:center;gap:10px;color:#374151;font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:.5px;background:#1f2937}
+.zone-sel-info{background:#0d1117;border-radius:8px;padding:10px 12px;font-size:12px;color:#f59e0b;border:1px solid #1f2d3d}
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center}
+#modal-bg.open{display:flex}
+#modal{background:#111827;border:1px solid #1f2d3d;border-radius:12px;padding:20px;width:290px;max-height:75vh;overflow-y:auto}
+#modal h3{font-size:14px;font-weight:500;margin-bottom:12px}
+.mzone-btn{width:100%;background:#0d1117;border:.5px solid #374151;border-radius:7px;padding:8px 11px;color:#f3f4f6;font-size:12px;cursor:pointer;margin-bottom:5px;text-align:left;display:flex;justify-content:space-between;align-items:center}
+.mzone-btn:hover{border-color:#f59e0b;color:#f59e0b}
+.mzone-btn.full{opacity:.35;cursor:not-allowed}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1f2937;color:#f3f4f6;padding:8px 18px;border-radius:8px;font-size:12px;border:.5px solid #374151;z-index:300;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.err{border-color:#7f1d1d;color:#fca5a5}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#374151;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">
+    <div class="logo-icon" style="background:transparent;padding:0;overflow:hidden"><img src="logo.png" style="width:36px;height:36px;object-fit:cover;border-radius:7px"/></div>
+    <div><div class="logo-title">YAMAZAKI ESPORTS</div><div class="logo-sub" id="session-sub">Duo Scrim — Drop Spot Registration</div></div>
+  </div>
+  <div class="hdr-r" id="hdr-r">
+    <div class="pill">Teams: <b id="h-teams">0</b>/<span id="h-max-teams">50</span></div>
+    <div class="pill">Zones: <b id="h-zones">0</b></div>
+  </div>
+</div>
+<div id="wrap" style="flex-direction:row-reverse">
+  <div id="map-wrap">
+    <img id="map-img" src="map.jpg" alt="Fortnite Map" draggable="false"/>
+    <svg id="zones-svg"></svg>
+  </div>
+  <div id="sb" style="border-left:none;border-right:1px solid #1f2d3d">
+
+    <div style="padding:8px 14px;border-bottom:1px solid #1f2d3d;display:flex;align-items:center;gap:6px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg>
+      <span style="font-size:11px;font-weight:600;color:#f3f4f6;text-transform:uppercase;letter-spacing:.05em">Session Leaderboard</span>
+    </div>
+
+    <!-- WAITING SECTION (logged in, no zone) -->
+    <div id="waiting-section" style="display:none;border-bottom:1px solid #1f2d3d">
+      <div style="padding:5px 14px;display:flex;align-items:center;justify-content:space-between;background:#0d1117">
+        <span style="font-size:10px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.08em">⏳ Waiting for spot</span>
+        <span id="waiting-count" style="font-size:10px;color:#6b7280">0</span>
+      </div>
+      <div id="waiting-list"></div>
+    </div>
+
+    <div style="padding:6px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid #1a2332">
+      <span style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Players</span>
+      <span id="sb-count" style="font-size:10px;color:#6b7280">0</span>
+    </div>
+    <div id="sb-list-wrap"><div id="teams-list"></div></div>
+    <div style="border-top:1px solid #1f2d3d;padding:10px 12px;background:#0d1117;flex-shrink:0">
+      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Your spot</div>
+      <div id="my-team-name" style="font-size:13px;font-weight:500;color:#4b5563">Not registered</div>
+      <div id="my-team-zone" style="font-size:11px;color:#f59e0b;margin-top:2px"></div>
+      <div id="my-team-time" style="font-size:10px;color:#4b5563;margin-top:2px"></div>
+      <button class="btn danger sm" id="rel-btn" style="display:none;margin-top:8px;width:100%;font-size:11px" onclick="releaseSpot()">Leave</button>
+    </div>
+    <div id="sb-footer" style="padding:8px 12px;border-top:1px solid #1f2d3d;display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+      <button class="btn danger" id="admin-reset-btn" style="display:none;font-size:11px" onclick="adminReset()">Reset all spots</button>
+      <button class="btn" id="editor-btn" style="display:none;font-size:11px;border-color:#f59e0b;color:#f59e0b" onclick="toggleEditor()">Zone Editor</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR TOOLBAR -->
+<div id="editor-bar">
+  <span style="font-size:12px;color:#f59e0b;font-weight:700;white-space:nowrap">ZONE EDITOR</span>
+  <span id="editor-hint" style="font-size:11px;color:#9ca3af">Click map to place corners — click green dot to close shape</span>
+  <div style="display:flex;align-items:center;gap:6px"><label style="font-size:11px;color:#6b7280">Name:</label><input type="text" id="editor-name" placeholder="Zone name"/></div>
+  <div style="display:flex;align-items:center;gap:6px"><label style="font-size:11px;color:#6b7280">Max:</label><select id="editor-max"><option value="1">1 team</option><option value="2">2 teams</option></select></div>
+  <button class="btn sm green" onclick="saveZones()">Save</button>
+  <button class="btn sm danger" onclick="clearAllZones()">Clear all</button>
+  <button class="btn sm" onclick="toggleEditor()">Exit</button>
+</div>
+
+<!-- SELECTED ZONE PANEL -->
+<div id="zone-panel">
+  <span style="font-size:11px;color:#9ca3af;white-space:nowrap">Zone:</span>
+  <input type="text" id="panel-name" placeholder="Zone name" oninput="updateSelectedZone()"/>
+  <select id="panel-max" onchange="updateSelectedZone()"><option value="1">Max 1 team</option><option value="2">Max 2 teams</option></select>
+  <button class="btn sm danger" onclick="deleteSelectedZone()">Delete</button>
+  <button class="btn sm" onclick="deselectZone()">✕</button>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" class="show">
+  <div class="screen-card">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0"><img src="logo.png" style="width:40px;height:40px;object-fit:cover"/></div>
+      <div><div class="screen-title">Yamazaki Esports</div><div style="font-size:12px;color:#6b7280">Duo Scrim Drop Registration</div></div>
+    </div>
+    <div class="screen-sub">Login with Discord to register your duo team and claim your drop zone.</div>
+    <button class="discord-btn" onclick="loginDiscord()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Login with Discord
+    </button>
+    <div class="divider">or</div>
+    <div>
+      <div class="field-lbl">Admin password</div>
+      <input class="field-inp" type="password" id="admin-pw" placeholder="Enter admin password" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')adminLogin()"/>
+      <button class="btn" style="width:100%" onclick="adminLogin()">Login as Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE MODAL -->
+<div id="modal-bg">
+  <div id="modal">
+    <h3 id="modal-title">Move team to zone</h3>
+    <div id="modal-list"></div>
+    <button class="btn" style="width:100%;margin-top:6px" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const BACKEND=window.location.origin; // auto-detects URL
+let ZONES=[];
+let maxTeams=50;
+let currentUser=null,teams={},zoneClaims={},connected={},selectedZoneId=null,moveTargetTeamId=null,socket=null;
+let editorMode=false,drawPts=[],selZone=null,dragPt=null,dragZone=null;
+
+// AUTH
+function loginDiscord(){const st=new URLSearchParams(window.location.search).get("session")||"";window.location.href=`${BACKEND}/auth/discord?state=${encodeURIComponent(st)}`;}
+async function adminLogin(){
+  const pw=document.getElementById('admin-pw').value;
+  if(!pw){toast('Enter the admin password',true);return;}
+  try{
+    const res=await fetch(`${BACKEND}/auth/admin-login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    if(res.ok){const d=await res.json();localStorage.setItem('yze_token',d.token);currentUser=d.user;showApp();}
+    else{const d=await res.json().catch(()=>({}));toast(d.error||'Wrong password',true);}
+  }catch(e){toast('Cannot reach backend — is port 3001 running?',true);}
+}
+async function loadUser(){
+  // Validate session token from URL
+  const sessionToken = new URLSearchParams(window.location.search).get('session') || sessionStorage.getItem('yze_session_token') || '';
+  if (sessionToken) sessionStorage.setItem('yze_session_token', sessionToken);
+
+  // Check if session is live and valid (admins skip this)
+  const sessRes = await fetch(`${BACKEND}/api/session/validate?token=${sessionToken}`).catch(()=>null);
+  if (sessRes) {
+    const sessData = await sessRes.json().catch(()=>({valid:false}));
+    if (!sessData.valid) {
+      // Show a locked screen instead of the map
+      document.getElementById('login-screen').classList.remove('show');
+      showSessionError(sessData.reason || 'Invalid or expired session link.');
+      return;
+    }
+  }
+
+  const tk=localStorage.getItem('yze_token');
+  if(!tk){document.getElementById('login-screen').classList.add('show');return;}
+  try{
+    const res=await fetch(`${BACKEND}/auth/me`,{headers:{'x-auth-token':tk}});
+    const d=await res.json();
+    if(d.user){
+      // Admins can always access
+      if(d.user.isAdmin){currentUser=d.user;showApp();return;}
+      // Players need a valid session token
+      if(!sessionToken){showSessionError('No session link found. Get the link from your Discord server.');return;}
+      currentUser=d.user;showApp();
+    }
+    else{localStorage.removeItem('yze_token');document.getElementById('login-screen').classList.add('show');}
+  }catch(e){document.getElementById('login-screen').classList.add('show');}
+}
+
+function showSessionError(msg) {
+  document.body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0f1a;flex-direction:column;gap:20px;padding:24px;text-align:center">
+      <div style="width:60px;height:60px;background:#f59e0b;border-radius:14px;display:flex;align-items:center;justify-content:center">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0a0f1a" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div style="font-size:20px;font-weight:600;color:#f3f4f6">Session Not Active</div>
+      <div style="font-size:14px;color:#6b7280;max-width:340px;line-height:1.6">${msg}</div>
+      <div style="font-size:12px;color:#4b5563">Ask your scrim admin for the correct link in Discord.</div>
+    </div>`;
+}
+function showApp(){
+  document.getElementById('login-screen').classList.remove('show');
+  const hr=document.getElementById('hdr-r');
+  const chip=document.createElement('div');chip.className='user-chip';
+  const av=currentUser.avatar||'https://cdn.discordapp.com/embed/avatars/0.png';
+  chip.innerHTML=`<img class="u-av" src="${av}"/><span class="u-name">${esc(currentUser.username)}</span>${currentUser.isAdmin?'<span class="admin-badge">ADMIN</span>':''}<button class="btn sm" style="margin-left:2px" onclick="logout()">Out</button>`;
+  hr.appendChild(chip);
+  if(currentUser.isAdmin){document.getElementById('admin-reset-btn').style.display='block';document.getElementById('editor-btn').style.display='block';}
+  // Show session name in header
+  fetch(`${BACKEND}/api/session/validate?token=${sessionStorage.getItem('yze_session_token')||''}`).then(r=>r.json()).then(d=>{
+    if(d.valid&&d.session){
+      const el=document.getElementById('session-sub');
+      if(el)el.textContent=d.session.title+' — Drop Spot Registration';
+      const mapImg=document.getElementById('map-img');
+      if(mapImg){
+        const newSrc=(d.session.mapMode==='reload')?'map_reload.jpg':'map.jpg';
+        if(mapImg.src!==newSrc){
+          mapImg.onload=()=>render();
+          mapImg.src=newSrc;
+        }
+      }
+    }
+  }).catch(()=>{});
+  socket=io(BACKEND,{auth:{token:localStorage.getItem('yze_token')}});
+  socket.on('state_update',d=>{teams=d.teams;zoneClaims=d.zoneClaims;connected=d.connected||{};if(d.zones&&d.zones.length>0)ZONES=d.zones;if(d.maxTeams)maxTeams=d.maxTeams;renderMap();renderSidebar();renderHeader();});
+  // Check in so admin can see this player even before they pick a zone
+  fetch(`${BACKEND}/api/checkin`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''}})
+    .then(()=>loadState())
+    .catch(()=>{});
+  loadState();
+}
+async function logout(){localStorage.removeItem('yze_token');await fetch(`${BACKEND}/auth/logout`,{method:'POST'});location.reload();}
+async function loadState(){
+  try{
+    const res=await fetch(BACKEND+'/api/state',{headers:{'x-auth-token':localStorage.getItem('yze_token')||''}});
+    const d=await res.json();
+    teams=d.teams||{};
+    zoneClaims=d.zoneClaims||{};
+    connected=d.connected||{};
+    if(d.zones&&d.zones.length>0)ZONES=d.zones;
+    if(d.maxTeams)maxTeams=d.maxTeams;
+    renderMap();renderSidebar();renderHeader();
+  }catch(e){console.error('loadState error:',e);}
+}
+
+// RENDER
+function render(){renderMap();renderSidebar();renderHeader();}
+
+function getR(){
+  const img=document.getElementById('map-img'),wrap=document.getElementById('map-wrap');
+  const ir=img.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+  return{x:ir.left-wr.left,y:ir.top-wr.top,w:ir.width,h:ir.height};
+}
+function toSVG(px,py,r){return{x:r.x+(px/100)*r.w,y:r.y+(py/100)*r.h};}
+function toPct(sx,sy,r){return{px:((sx-r.x)/r.w)*100,py:((sy-r.y)/r.h)*100};}
+function ptsStr(pts,r){return pts.map(p=>{const s=toSVG(p.px,p.py,r);return`${s.x},${s.y}`;}).join(' ');}
+function center(pts,r){if(!pts.length)return{x:0,y:0};const ax=pts.reduce((s,p)=>s+p.px,0)/pts.length,ay=pts.reduce((s,p)=>s+p.py,0)/pts.length;return toSVG(ax,ay,r);}
+function svgXY(e){const s=document.getElementById('zones-svg').getBoundingClientRect();const c=e.touches?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY};return{x:c.x-s.left,y:c.y-s.top};}
+
+function renderMap(){
+  const svg=document.getElementById('zones-svg');svg.innerHTML='';
+  const r=getR();
+  ZONES.forEach(z=>{
+    if(!z.points||z.points.length<3)return;
+    const ct=(zoneClaims[z.id]||[]).map(tid=>teams[tid]).filter(Boolean);
+    const full=ct.length>=z.maxTeams,part=ct.length>0&&!full;
+    const mine=ct.some(t=>t.player1DiscordId===currentUser?.discordId);
+    const isSel=selZone?.id===z.id;
+    const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    poly.setAttribute('points',ptsStr(z.points,r));
+    poly.classList.add('zone-poly');
+    poly.dataset.zid=z.id;
+    if(editorMode){poly.classList.add('editor-z');if(isSel)poly.classList.add('editor-sel');poly.addEventListener('mousedown',e=>startDragZone(e,z));}
+    else{if(mine)poly.classList.add('mine');else if(full)poly.classList.add('claimed');else if(part)poly.classList.add('multi');poly.addEventListener('click',()=>zoneClick(z));}
+    svg.appendChild(poly);
+    const c=center(z.points,r);
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',c.x);lbl.setAttribute('y',ct.length?c.y-9:c.y);lbl.classList.add('zlbl');lbl.textContent=z.name;svg.appendChild(lbl);
+    ct.forEach((t,i)=>{
+      const avatarSize = 28;
+      const ay = c.y - avatarSize/2 + i*32;
+      // Avatar circle clip
+      const clipId = 'clip_'+t.teamId.replace(/[^a-z0-9]/gi,'_');
+      const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const clipPath = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
+      clipPath.setAttribute('id', clipId);
+      const clipCircle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      clipCircle.setAttribute('cx', c.x); clipCircle.setAttribute('cy', ay); clipCircle.setAttribute('r', avatarSize/2);
+      clipPath.appendChild(clipCircle); defs.appendChild(clipPath); svg.appendChild(defs);
+      // Avatar image
+      const av = document.createElementNS('http://www.w3.org/2000/svg','image');
+      av.setAttribute('href', t.player1Avatar||'https://cdn.discordapp.com/embed/avatars/0.png');
+      av.setAttribute('x', c.x - avatarSize/2); av.setAttribute('y', ay - avatarSize/2);
+      av.setAttribute('width', avatarSize); av.setAttribute('height', avatarSize);
+      av.setAttribute('clip-path', 'url(#'+clipId+')');
+      av.style.pointerEvents='none';
+      svg.appendChild(av);
+      // Avatar border
+      const border = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      border.setAttribute('cx', c.x); border.setAttribute('cy', ay); border.setAttribute('r', avatarSize/2+1);
+      border.setAttribute('fill','none'); border.setAttribute('stroke','#f59e0b'); border.setAttribute('stroke-width','1.5');
+      border.style.pointerEvents='none'; svg.appendChild(border);
+      // Name below avatar
+      const tl=document.createElementNS('http://www.w3.org/2000/svg','text');
+      tl.setAttribute('x',c.x); tl.setAttribute('y',ay+avatarSize/2+10);
+      tl.classList.add('tlbl');
+      tl.textContent=t.teamName.length>12?t.teamName.slice(0,11)+'…':t.teamName;
+      svg.appendChild(tl);
+    });
+    if(z.maxTeams>1){const nm=document.createElementNS('http://www.w3.org/2000/svg','text');nm.setAttribute('x',c.x);nm.setAttribute('y',c.y+(ct.length?c.y>0?18:10:12));nm.setAttribute('text-anchor','middle');nm.style.cssText='font-size:8px;fill:rgba(245,158,11,0.8);font-family:-apple-system,sans-serif;pointer-events:none';nm.textContent=`${ct.length}/${z.maxTeams}`;svg.appendChild(nm);}
+    if(editorMode&&isSel){
+      z.points.forEach((p,i)=>{
+        const s=toSVG(p.px,p.py,r);
+        const d=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        d.setAttribute('cx',s.x);d.setAttribute('cy',s.y);d.setAttribute('r',6);d.classList.add('cdot');
+        d.addEventListener('mousedown',e=>{e.stopPropagation();dragPt={zid:z.id,i};});
+        svg.appendChild(d);
+      });
+    }
+  });
+  // Drawing preview
+  if(editorMode&&drawPts.length){
+    for(let i=1;i<drawPts.length;i++){
+      const a=toSVG(drawPts[i-1].px,drawPts[i-1].py,r),b=toSVG(drawPts[i].px,drawPts[i].py,r);
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1',a.x);ln.setAttribute('y1',a.y);ln.setAttribute('x2',b.x);ln.setAttribute('y2',b.y);ln.classList.add('draw-seg');svg.appendChild(ln);
+    }
+    drawPts.forEach((p,i)=>{
+      const s=toSVG(p.px,p.py,r);
+      const d=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      d.setAttribute('cx',s.x);d.setAttribute('cy',s.y);
+      if(i===0){d.setAttribute('r',9);d.classList.add('close-pt');d.addEventListener('click',e=>{e.stopPropagation();finishPoly();});}
+      else{d.setAttribute('r',5);d.classList.add('draw-pt');}
+      svg.appendChild(d);
+    });
+  }
+}
+
+function renderSidebar(){
+  const myId=currentUser?`team_${currentUser.discordId}`:null;
+  const myT=myId?teams[myId]:null;
+  const nameEl=document.getElementById('my-team-name');
+  const zoneEl=document.getElementById('my-team-zone');
+  const timeEl=document.getElementById('my-team-time');
+  const relBtn=document.getElementById('rel-btn');
+  const regBtn=document.getElementById('reg-btn');
+  if(myT){
+    const z=ZONES.find(z=>z.id===myT.zoneId);
+    if(nameEl){nameEl.textContent=myT.teamName;nameEl.style.color='#34d399';}
+    if(zoneEl)zoneEl.textContent=z?z.name:'';
+    if(timeEl)timeEl.textContent='Registered '+fmtTime(myT.ts);
+    if(regBtn)regBtn.textContent='Update';
+    if(relBtn)relBtn.style.display='block';
+  }else{
+    if(nameEl){nameEl.textContent='Not registered';nameEl.style.color='#4b5563';}
+    if(zoneEl)zoneEl.textContent='';
+    if(timeEl)timeEl.textContent='';
+    if(regBtn)regBtn.textContent='Register Team';
+    if(relBtn)relBtn.style.display='none';
+  }
+
+  // Render waiting list (logged in, no zone claimed yet)
+  const claimedIds = new Set(Object.values(teams).map(t=>t.player1DiscordId));
+  const waiting = Object.values(connected).filter(c=>!claimedIds.has(c.discordId)).sort((a,b)=>a.joinedTs-b.joinedTs);
+  const waitSection=document.getElementById('waiting-section');
+  const waitList=document.getElementById('waiting-list');
+  const waitCount=document.getElementById('waiting-count');
+  if(waitSection){
+    if(waiting.length>0){
+      waitSection.style.display='block';
+      if(waitCount)waitCount.textContent=waiting.length;
+      waitList.innerHTML='';
+      waiting.forEach(c=>{
+        const av=c.avatar||'https://cdn.discordapp.com/embed/avatars/0.png';
+        const isMe=currentUser&&c.discordId===currentUser.discordId;
+        const row=document.createElement('div');
+        row.style.cssText='padding:5px 12px;border-bottom:0.5px solid #1a2332;display:flex;align-items:center;gap:7px';
+        let assignBtn='';
+        if(currentUser&&currentUser.isAdmin){
+          assignBtn='<button onclick="openMoveModalForConnected(\''+esc(c.discordId)+'\',\''+esc(c.username)+'\')" style="background:transparent;border:0.5px solid #374151;color:#9ca3af;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer;flex-shrink:0">Assign</button>';
+        }
+        row.innerHTML='<img src="'+av+'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid '+(isMe?'#f59e0b':'#374151')+'">'
+          +'<span style="font-size:12px;color:'+(isMe?'#f59e0b':'#9ca3af')+';flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.username)+'</span>'
+          +assignBtn;
+        waitList.appendChild(row);
+      });
+    } else {
+      waitSection.style.display='none';
+    }
+  }
+
+  const list=document.getElementById('teams-list');list.innerHTML='';
+  const all=Object.values(teams).sort((a,b)=>a.ts-b.ts);
+  const sbCount=document.getElementById('sb-count');if(sbCount)sbCount.textContent=all.length;
+  all.forEach(t=>{
+    const z=ZONES.find(z=>z.id===t.zoneId);const row=document.createElement('div');row.className='team-row';
+    const av=t.player1Avatar||'https://cdn.discordapp.com/embed/avatars/0.png';
+    const isMe=currentUser&&t.player1DiscordId===currentUser.discordId;
+    let adminBtns='';
+    if(currentUser&&currentUser.isAdmin){
+      adminBtns='<div style="display:flex;gap:3px;margin-left:auto">'
+        +'<button onclick="openMoveModal(\''+esc(t.teamId)+'\',\''+esc(t.teamName)+'\')" style="background:transparent;border:0.5px solid #374151;color:#9ca3af;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">Move</button>'
+        +'<button onclick="adminKick(\''+esc(t.teamId)+'\')" style="background:transparent;border:0.5px solid #7f1d1d;color:#fca5a5;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">Kick</button>'
+        +'</div>';
+    }
+    row.innerHTML='<div style="width:4px;height:36px;background:'+(isMe?'#4ade80':'transparent')+';border-radius:2px;flex-shrink:0;margin-right:2px"></div>'
+      +'<img src="'+av+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid '+(isMe?'#4ade80':'#1f2937')+'">'
+      +'<div style="flex:1;min-width:0;margin-left:2px">'
+      +'<div style="font-size:13px;font-weight:500;color:'+(isMe?'#4ade80':'#f3f4f6')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.teamName)+'</div>'
+      +'<div style="font-size:10px;color:#f59e0b">'+esc(z?z.name:'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">'
+      +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+      +'<span style="font-size:9px;color:#4b5563">'+fmtTime(t.ts)+'</span>'
+      +adminBtns
+      +'</div>';
+    list.appendChild(row);
+  });
+}
+function renderHeader(){document.getElementById('h-teams').textContent=Object.keys(teams).length;document.getElementById('h-max-teams').textContent=maxTeams;document.getElementById('h-zones').textContent=ZONES.length;}
+
+// ZONE CLICK (play mode)
+async function zoneClick(z){
+  if(!currentUser||editorMode)return;
+  const ct=(zoneClaims[z.id]||[]).map(tid=>teams[tid]).filter(Boolean);
+  const mine=ct.some(t=>t.teamId===`team_${currentUser.discordId}`);
+  if(mine){
+    if(!confirm('Release your spot from '+z.name+'?'))return;
+    const res=await fetch(BACKEND+'/api/release',{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''}});
+    if(res.ok){loadState();toast('Spot released.');}
+    return;
+  }
+  if(ct.length>=z.maxTeams){toast(z.name+' is full',true);return;}
+  const res=await fetch(BACKEND+'/api/register',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},
+    body:JSON.stringify({zoneId:z.id,sessionToken:sessionStorage.getItem('yze_session_token')||''})
+  });
+  const d=await res.json();
+  if(!res.ok){toast(d.error||'Error',true);return;}
+  loadState();
+  toast('You claimed '+z.name+'!');
+}
+
+// REGISTER
+function openRegister(){
+  const myT=teams[`team_${currentUser.discordId}`];
+  if(myT){document.getElementById('reg-team-name').value=myT.teamName;document.getElementById('reg-p2').value=myT.player2Discord;if(!selectedZoneId)selectedZoneId=myT.zoneId;}
+  document.getElementById('reg-p1-name').textContent=currentUser.username;
+  document.getElementById('selected-zone-name').textContent=selectedZoneId?(ZONES.find(z=>z.id===selectedZoneId)?.name||'Unknown'):'None — click a zone first';
+  document.getElementById('register-screen').classList.add('show');
+}
+function closeRegister(){document.getElementById('register-screen').classList.remove('show');}
+async function submitRegister(){
+  const tn=document.getElementById('reg-team-name').value.trim(),p2=document.getElementById('reg-p2').value.trim();
+  if(!tn){toast('Enter team name',true);return;}if(!p2){toast("Enter partner's Discord",true);return;}if(!selectedZoneId){toast('Select a zone first',true);return;}
+  const res=await fetch(`${BACKEND}/api/register`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},body:JSON.stringify({teamName:tn,player2Discord:p2,zoneId:selectedZoneId})});
+  const d=await res.json();if(!res.ok){toast(d.error||'Error',true);return;}closeRegister();loadState();toast(`Team "${tn}" registered!`);
+}
+async function releaseSpot(){if(!confirm('Release your drop spot?'))return;const res=await fetch(`${BACKEND}/api/release`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''}});if(res.ok){selectedZoneId=null;loadState();toast('Spot released.');}}
+
+// ADMIN
+function openMoveModal(tid,tn){
+  moveTargetTeamId=tid;document.getElementById('modal-title').textContent=`Move "${tn}" to:`;
+  const list=document.getElementById('modal-list');list.innerHTML='';
+  ZONES.forEach(z=>{const cnt=(zoneClaims[z.id]||[]).length,full=cnt>=z.maxTeams;const btn=document.createElement('button');btn.className='mzone-btn'+(full?' full':'');btn.innerHTML=`<span>${esc(z.name)}</span><span style="font-size:10px;color:#4b5563">${cnt}/${z.maxTeams}</span>`;if(!full)btn.onclick=()=>doMove(z.id);list.appendChild(btn);});
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+async function openMoveModalForConnected(discordId, username){
+  // Admin-assign a zone directly to a waiting (no-spot) player
+  document.getElementById('modal-title').textContent=`Assign zone to "${username}":`;
+  const list=document.getElementById('modal-list');list.innerHTML='';
+  ZONES.forEach(z=>{
+    const cnt=(zoneClaims[z.id]||[]).length,full=cnt>=z.maxTeams;
+    const btn=document.createElement('button');btn.className='mzone-btn'+(full?' full':'');
+    btn.innerHTML=`<span>${esc(z.name)}</span><span style="font-size:10px;color:#4b5563">${cnt}/${z.maxTeams}</span>`;
+    if(!full)btn.onclick=async()=>{
+      const res=await fetch(`${BACKEND}/api/admin/assign`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},body:JSON.stringify({discordId,zoneId:z.id})});
+      const d=await res.json();closeModal();if(res.ok){loadState();toast(username+' assigned to '+z.name);}else toast(d.error||'Error',true);
+    };
+    list.appendChild(btn);
+  });
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');moveTargetTeamId=null;}
+async function doMove(toZoneId){const res=await fetch(`${BACKEND}/api/admin/move`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},body:JSON.stringify({teamId:moveTargetTeamId,toZoneId})});const d=await res.json();closeModal();if(res.ok){loadState();toast('Team moved.');}else toast(d.error||'Error',true);}
+async function adminKick(tid){if(!confirm('Remove this team?'))return;const res=await fetch(`${BACKEND}/api/admin/remove`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},body:JSON.stringify({teamId:tid})});if(res.ok){loadState();toast('Team removed.');}}
+async function adminReset(){if(!confirm('Reset ALL spots?'))return;const res=await fetch(`${BACKEND}/api/admin/reset`,{method:'POST',headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''}});if(res.ok){loadState();toast('All spots reset.');}}
+
+// POLYGON EDITOR
+function toggleEditor(){
+  editorMode=!editorMode;drawPts=[];selZone=null;
+  const bar=document.getElementById('editor-bar');
+  bar.style.display=editorMode?'flex':'none';
+  document.getElementById('zone-panel').style.display='none';
+  document.getElementById('editor-btn').textContent=editorMode?'Exit Editor':'Zone Editor';
+  document.getElementById('editor-btn').classList.toggle('active',editorMode);
+  document.getElementById('zones-svg').style.cursor=editorMode?'crosshair':'default';
+  render();
+}
+
+document.getElementById('zones-svg').addEventListener('click',e=>{
+  if(!editorMode)return;
+  if(e.target.classList.contains('close-pt'))return;
+  if(e.target.classList.contains('cdot'))return;
+  if(e.target.classList.contains('zone-poly')){
+    const z=ZONES.find(z=>z.id===e.target.dataset.zid)||null;
+    selZone=z;
+    if(z){document.getElementById('panel-name').value=z.name;document.getElementById('panel-max').value=z.maxTeams;document.getElementById('zone-panel').style.display='flex';}
+    renderMap();return;
+  }
+  selZone=null;document.getElementById('zone-panel').style.display='none';
+  const sv=svgXY(e),r=getR(),p=toPct(sv.x,sv.y,r);
+  if(p.px<0||p.px>100||p.py<0||p.py>100)return;
+  drawPts.push({px:+p.px.toFixed(3),py:+p.py.toFixed(3)});
+  if(drawPts.length===1)document.getElementById('editor-hint').textContent='Keep clicking corners — click the GREEN dot to close the shape';
+  renderMap();
+});
+
+function finishPoly(){
+  if(drawPts.length<3){toast('Need at least 3 points',true);return;}
+  const name=document.getElementById('editor-name').value.trim()||('Zone '+(ZONES.length+1));
+  const maxTeams=parseInt(document.getElementById('editor-max').value)||1;
+  ZONES.push({id:'z'+Date.now(),name,maxTeams,points:[...drawPts]});
+  drawPts=[];document.getElementById('editor-name').value='';
+  document.getElementById('editor-hint').textContent='Click map to place corners — click green dot to close shape';
+  saveZones();render();toast(`Zone "${name}" created!`);
+}
+
+function startDragZone(e,z){
+  if(dragPt)return;
+  const sv=svgXY(e),r=getR(),p=toPct(sv.x,sv.y,r);
+  dragZone={zid:z.id,sx:p.px,sy:p.py,orig:z.points.map(pt=>({...pt}))};
+  selZone=z;document.getElementById('panel-name').value=z.name;document.getElementById('panel-max').value=z.maxTeams;document.getElementById('zone-panel').style.display='flex';
+  renderMap();
+}
+
+document.addEventListener('mousemove',e=>{
+  if(!editorMode)return;
+  const sv=svgXY(e),r=getR(),p=toPct(sv.x,sv.y,r);
+  if(dragPt){
+    const z=ZONES.find(z=>z.id===dragPt.zid);
+    if(z){z.points[dragPt.i]={px:+Math.max(0,Math.min(100,p.px)).toFixed(3),py:+Math.max(0,Math.min(100,p.py)).toFixed(3)};renderMap();}
+  }else if(dragZone){
+    const z=ZONES.find(z=>z.id===dragZone.zid);
+    if(z){const dx=p.px-dragZone.sx,dy=p.py-dragZone.sy;z.points=dragZone.orig.map(pt=>({px:+Math.max(0,Math.min(100,pt.px+dx)).toFixed(3),py:+Math.max(0,Math.min(100,pt.py+dy)).toFixed(3)
+    }));renderMap();}
+  }
+});
+
+document.addEventListener('mouseup',()=>{
+  if((dragPt||dragZone)&&editorMode)saveZones();
+  dragPt=null;dragZone=null;
+});
+
+function updateSelectedZone(){if(!selZone)return;selZone.name=document.getElementById('panel-name').value;selZone.maxTeams=parseInt(document.getElementById('panel-max').value)||1;saveZones();renderMap();renderHeader();}
+function deleteSelectedZone(){if(!selZone)return;if(!confirm(`Delete "${selZone.name}"?`))return;ZONES=ZONES.filter(z=>z.id!==selZone.id);selZone=null;document.getElementById('zone-panel').style.display='none';saveZones();render();toast('Zone deleted.');}
+function deselectZone(){selZone=null;document.getElementById('zone-panel').style.display='none';renderMap();}
+function clearAllZones(){if(!confirm('Delete ALL zones?'))return;ZONES=[];drawPts=[];selZone=null;document.getElementById('zone-panel').style.display='none';saveZones();render();toast('All zones cleared.');}
+function saveZones(){
+  localStorage.setItem('yze_zones_v2',JSON.stringify(ZONES));
+  if(!currentUser?.isAdmin)return;
+  fetch(BACKEND+'/api/admin/zones',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-auth-token':localStorage.getItem('yze_token')||''},
+    body:JSON.stringify({zones:ZONES})
+  });
+}
+
+document.addEventListener('keydown',e=>{
+  if(!editorMode)return;
+  if(e.key==='Escape'){drawPts=[];document.getElementById('editor-hint').textContent='Click map to place corners — click green dot to close shape';renderMap();}
+  if((e.key==='Delete'||e.key==='Backspace')&&selZone&&document.activeElement.tagName!=='INPUT')deleteSelectedZone();
+});
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function toast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(err?' err':'');setTimeout(()=>t.className='',2800);}
+
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,80);});
+document.getElementById('map-img').addEventListener('load',render);
+// Pick up token from URL after Discord OAuth redirect
+const urlParams = new URLSearchParams(window.location.search);
+const urlToken = urlParams.get('token');
+const urlSession = urlParams.get('session');
+if (urlToken) localStorage.setItem('yze_token', urlToken);
+if (urlSession) sessionStorage.setItem('yze_session_token', urlSession);
+if (urlToken || urlSession) window.history.replaceState({}, '', window.location.pathname + (urlSession ? '?session='+urlSession : ''));
+loadUser();
+</script>
+</body>
+</html>
