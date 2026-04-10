@@ -1,0 +1,15 @@
+[
+  {
+    "id": "sess_1775778983999",
+    "title": "DUo",
+    "type": "duo",
+    "mapMode": "reload",
+    "status": "live",
+    "date": 1775778983999,
+    "teams": 2,
+    "zones": 40,
+    "secretToken": "43zrqrrd6lklth0s5jy3gtzdj0izwqo4gonakg8zi6p6q3oa",
+    "mapUrl": "http://localhost:3001/map.html?session=43zrqrrd6lklth0s5jy3gtzdj0izwqo4gonakg8zi6p6q3oa",
+    "snapshot": null
+  }
+]

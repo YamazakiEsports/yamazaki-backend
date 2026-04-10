@@ -1,0 +1,12 @@
+# Dependencies — never upload these (too large, Railway installs them automatically)
+node_modules/
+
+# Environment variables — never upload these (your secrets live on Railway instead)
+.env
+
+# Mac junk files
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

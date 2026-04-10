@@ -1,0 +1,24 @@
+{
+  "team_admin": {
+    "teamId": "team_admin",
+    "teamName": "Admin",
+    "player1DiscordId": "admin",
+    "player1Username": "Admin",
+    "player1Avatar": null,
+    "player2Discord": "",
+    "zoneId": "z1775689348038",
+    "ts": 1775778987826,
+    "updatedTs": 1775779015344
+  },
+  "team_1458986728315682956": {
+    "teamId": "team_1458986728315682956",
+    "teamName": "elxanaze008",
+    "player1DiscordId": "1458986728315682956",
+    "player1Username": "elxanaze008",
+    "player1Avatar": "https://cdn.discordapp.com/avatars/1458986728315682956/764737dbf94a6e4f83050ed5eb7f8aa3.png",
+    "player2Discord": "",
+    "zoneId": "z1775689348038",
+    "ts": 1775779006032,
+    "updatedTs": 1775779014322
+  }
+}
